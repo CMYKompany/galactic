@@ -1,0 +1,6 @@
+# Wi-Fi password - never commit
+device/secrets.py
+# written by the board, not source
+settings.json
+__pycache__/
+preview/
