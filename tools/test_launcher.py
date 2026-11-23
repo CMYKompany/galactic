@@ -50,7 +50,7 @@ class App:
 '''
 
 MODULES = ("main", "launcher", "app_clock", "app_red", "app_crashy", "ota", "net",
-           "clockface", "timekeeping", "text", "config", "secrets")
+           "clockface", "timekeeping", "text", "inbox", "config", "secrets")
 MSG = (255, 236, 214)   # default message colour
 
 
@@ -73,13 +73,15 @@ def make_board(apps, extra_config=""):
     return board
 
 
-def boot(board, seconds, presses=()):
+def boot(board, seconds, presses=(), before=None):
     """Run main.py; returns (outcome, stdout, frames {ms: buf}, final brightness)."""
     os.chdir(board)
     for m in MODULES:
         sys.modules.pop(m, None)
     sys.path[:] = [p for p in sys.path if not p.startswith(tempfile.gettempdir())]
     sys.path.insert(0, board)
+    if before:
+        before()
     requests.serve(None)
     SIM.__init__()
     SIM.true_utc0 = dt.datetime(2026, 11, 23, 15, 0, 20, tzinfo=dt.timezone.utc).timestamp()
@@ -216,6 +218,57 @@ def test_long_message_scrolls():
     best = max(range(0, 30), key=lambda d: sum(a[x] == b[x - d] for x in range(d, 53)))
     assert 17 <= best <= 23, best
     print("ok  long messages scroll")
+
+
+class FakeNtfy:
+    """Stand-in for the ntfy stream: releases scripted lines at scripted times."""
+
+    def __init__(self, events):
+        self.events = list(events)          # [(seconds, dict)]
+        self.sent = b""
+        self.head = False
+
+    def write(self, b):
+        self.sent += b
+
+    def setblocking(self, flag):
+        pass
+
+    def read(self, n):
+        if not self.head:
+            self.head = True
+            return b"HTTP/1.0 200 OK\r\n\r\n"
+        if self.events and SIM.ms >= self.events[0][0] * 1000:
+            ev = self.events.pop(0)[1]
+            return (json.dumps(ev) + "\n").encode()
+        return None
+
+    def close(self):
+        pass
+
+
+def test_ntfy_message_shows_and_urgent_wakes_display():
+    board = make_board(("red",))
+    with open(os.path.join(board, "secrets.py"), "a") as f:
+        f.write('NTFY_TOPIC = "test-topic"\n')
+    stream = FakeNtfy([
+        (4, {"id": "m1", "time": 1, "event": "message", "message": "Lunch is here"}),
+        (12, {"id": "m2", "time": 2, "event": "message", "message": "Server down",
+              "priority": 5}),
+    ])
+
+    def patch():
+        import inbox
+        inbox._open_socket = lambda host, port, tls: stream
+
+    _, log, frames, _ = boot(board, 34, presses=[(9, 0.1, GU.SWITCH_SLEEP)], before=patch)
+    assert b"GET /test-topic/json HTTP/1.0" in stream.sent, stream.sent
+    assert "Message: Lunch is here" in log, log
+    assert has_color(frame_at(frames, 6), MSG)
+    assert is_solid(frame_at(frames, 11), (0, 0, 0))              # asleep
+    assert has_color(frame_at(frames, 14), (255, 70, 60))         # urgent: woke, red
+    assert log.count("Message: Lunch is here") == 2, log           # interrupted one re-shown
+    print("ok  ntfy messages show; urgent ones wake a sleeping display")
 
 
 def main():

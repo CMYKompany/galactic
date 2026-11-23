@@ -33,6 +33,7 @@ twice. The owner can confirm it from that.
 | `device/app_clock.py` | Clock app (buttons A–D themes, VOL± options) |
 | `device/clockface.py` | Clock rendering: fonts, themes, compositing. Hot loops use `@micropython.native` |
 | `device/text.py` | Proportional ASCII pixel font (9 rows incl. descenders), `measure()` / `draw()` |
+| `device/inbox.py` | ntfy subscriber (see Messages) |
 | `device/timekeeping.py` | RTC holds UTC; local time + DST computed per frame |
 | `device/net.py` | Non-blocking Wi-Fi connection manager |
 | `device/config.py` | Owner's preferences, `APPS` list. **Deployed by OTA**, so it is the source of truth for time zone etc. App-specific keys are prefixed (`CLOCK_…`). |
@@ -52,10 +53,17 @@ twice. The owner can confirm it from that.
 
 ## Messages
 
-`ctx.notify(text, seconds, color)` (launcher `Messages`) takes over the display, queues, and
-scrolls text wider than ~51 px. `ANNOUNCEMENT` in config.py is shown once per new value
-(remembered in settings.json as `system.announced`). This is the basis for future remote
-notifications. No remote message channel exists yet.
+`ctx.notify(text, seconds, color, urgent)` (launcher `Messages`) takes over the display,
+queues (urgent jumps ahead and re-queues the interrupted one), and scrolls text wider than
+~51 px. `ANNOUNCEMENT` in config.py is shown once per new value (`system.announced`).
+
+Remote messages: `device/inbox.py` keeps one streaming HTTP/1.0 connection to
+`NTFY_SERVER/<NTFY_TOPIC>/json`, read non-blocking each frame; connecting (DNS+TLS, blocking)
+happens only at app-quiet moments, and the stream is closed during OTA checks (RAM: one TLS
+connection at a time). Resumes with `since=<last message time>` and de-dupes ids (persisted).
+`NTFY_TOPIC` lives only in the board's secrets.py, never in the repo (public repo = anyone
+could message the display). The owner has the topic; ask them for it rather than guessing.
+This sandbox cannot reach ntfy.sh unless the environment's network allows it.
 
 ## Adding an app
 

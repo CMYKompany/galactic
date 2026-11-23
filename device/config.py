@@ -41,6 +41,10 @@ UPDATE_REPO = "CMYKompany/galactic"
 UPDATE_BRANCH = "main"
 UPDATE_MINUTES = 10
 
+# Incoming messages: the board listens on this ntfy server for messages sent to
+# NTFY_TOPIC (set in secrets.py on the board - the topic works as a password).
+NTFY_SERVER = "https://ntfy.sh"
+
 # A one-off message, shown full-screen once after it changes (e.g. when an
 # update delivers a new one). Set to "" for none.
 ANNOUNCEMENT = "Hello, world"

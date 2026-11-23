@@ -21,9 +21,10 @@
 #       def quiet(self, now): return True     # False = not a good moment for a
 #                                             #   brief network pause (animation)
 #
-# Messages: ctx.notify("text", seconds=5, color=(r, g, b)) shows a message
-# full-screen over the current app (queued if one is already showing; long
-# text scrolls), then returns to the app, calling its start() again.
+# Messages: ctx.notify("text", seconds=5, color=(r, g, b), urgent=False) shows
+# a message full-screen over the current app (queued if one is already
+# showing; urgent ones go first; long text scrolls), then returns to the app,
+# calling its start() again.
 #
 # then add its name to APPS in config.py. `now` is time.ticks_ms(); `t` is
 # seconds since start-up as a float, for animation. The launcher calls
@@ -39,6 +40,7 @@ from picographics import PicoGraphics, DISPLAY_GALACTIC_UNICORN as DISPLAY
 
 import config
 import text
+from inbox import Inbox
 from net import WiFi
 from timekeeping import TimeKeeper, sync_ntp
 
@@ -47,6 +49,10 @@ try:
 except ImportError:
     WIFI_SSID = None
     WIFI_PASSWORD = None
+try:
+    from secrets import NTFY_TOPIC      # incoming messages; the topic is the password
+except ImportError:
+    NTFY_TOPIC = ""
 
 W = 53
 H = 11
@@ -247,10 +253,21 @@ class Messages:
         self.queue = []
         self.cur = None
 
-    def add(self, msg, seconds=5, color=None, not_before=None):
+    def add(self, msg, seconds=5, color=None, not_before=None, urgent=False):
+        """Queue a message. Urgent ones jump the queue and cut short whatever
+        message is showing."""
         msg = str(msg).replace("\n", " ")
-        if msg:
-            self.queue.append((msg, max(1.0, float(seconds)), color or self.COLOR, not_before))
+        if not msg:
+            return
+        item = (msg, max(1.0, float(seconds)), color or self.COLOR, not_before)
+        if urgent:
+            self.queue.insert(0, item)
+            if self.cur is not None:          # show the interrupted one again after
+                c = self.cur
+                self.queue.insert(1, (c["msg"], c["seconds"], c["color"], None))
+                self.cur = None
+        else:
+            self.queue.append(item)
 
     def busy(self):
         return self.cur is not None or bool(self.queue)
@@ -274,7 +291,8 @@ class Messages:
                     if ch in self.DESCENDERS:
                         has_desc = True
                         break
-                self.cur = {"msg": msg, "color": color, "w": width, "scroll": scroll,
+                self.cur = {"msg": msg, "seconds": seconds, "color": color,
+                            "w": width, "scroll": scroll,
                             "t0": now, "hold": hold, "y": 1 if has_desc else 2,
                             "pass_ms": one_pass if scroll else 0}
                 print("Message:", msg)
@@ -362,10 +380,18 @@ class Launcher:
         self.ctx = Context(self.gu, self.gfx, self.store, clock, net, self.messages.add)
         self.buttons = Buttons(self.gu)
         self.overlay = Overlay(self.gfx)
+        self.inbox = Inbox(cfg("NTFY_SERVER", "https://ntfy.sh"), NTFY_TOPIC,
+                           self._incoming, self.store)
+        self._wake = False
 
         self.apps = [a for a in cfg("APPS", (FALLBACK_APP,))] or [FALLBACK_APP]
         self.app = None
         self.app_name = None
+
+    def _incoming(self, msg, seconds, color, urgent):
+        self.messages.add(msg, seconds, color, urgent=urgent)
+        if urgent:
+            self._wake = True
 
     # ------------------------------------------------------------ apps
 
@@ -452,17 +478,30 @@ class Launcher:
             # Each blocks the display briefly, so at most one per frame, and
             # only when the app says it's a quiet moment.
             net.poll(now)
+            inbox = self.inbox
             if net.connected():
+                inbox.poll(now)                   # never blocks
                 quiet = getattr(self.app, "quiet", None)
                 ok = quiet is None or quiet(now)
                 if time.ticks_diff(now, ntp_due) >= 0:
                     ntp_due = time.ticks_add(now, ntp_every if sync_ntp(ntp_host) else 30000)
                 elif updater is not None and ok and time.ticks_diff(now, ota_due) >= 0:
                     ota_due = time.ticks_add(now, ota_every)
+                    inbox.close()                 # one TLS connection at a time (RAM)
                     if updater.check() == "installed":
                         machine.reset()
+                elif ok and inbox.wants_connect(now):
+                    inbox.connect(now)
                 now = time.ticks_ms()
                 last = now
+            else:
+                inbox.close()
+
+            if self._wake:
+                self._wake = False
+                if not display_on:
+                    display_on = True
+                    self._call("start", now)
 
             if updater is not None and updater.pending() and \
                     time.ticks_diff(now, started) > HEALTHY_AFTER_MS:

@@ -33,6 +33,10 @@ step "over-the-air updater"
 python3 tools/test_ota.py 2>&1 | grep -E "^(ok|FAIL)|passed" || true
 python3 tools/test_ota.py >/dev/null 2>&1
 
+step "inbox: ntfy message stream"
+python3 tools/test_inbox.py 2>&1 | grep -E "^(ok|FAIL)|passed" || true
+python3 tools/test_inbox.py >/dev/null 2>&1
+
 step "launcher: apps, buttons, crash isolation, settings"
 python3 tools/test_launcher.py 2>&1 | grep -E "^(ok|FAIL)|passed" || true
 python3 tools/test_launcher.py >/dev/null 2>&1

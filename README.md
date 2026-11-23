@@ -161,6 +161,41 @@ cd device && mpremote cp app_clock.py clockface.py config.py launcher.py main.py
 
 ---
 
+## Sending messages to the display
+
+The board listens for messages on [ntfy](https://ntfy.sh), a free notification relay.
+Anything that can make a web request can send one, and it appears within a second or two.
+
+1. Pick a private **topic** (a long random name; it works like a password) and add it to
+   `secrets.py` on the board: `NTFY_TOPIC = "your-topic-name"`.
+2. Send:
+
+```bash
+curl -d "Lunch is here" https://ntfy.sh/your-topic-name
+```
+
+```bash
+curl -H "Title: Build" -H "Priority: high" -d "Deploy finished" https://ntfy.sh/your-topic-name
+```
+
+Or install the **ntfy** phone app, subscribe to the same topic, and send from there. Power
+Automate, Zapier, Home Assistant, GitHub Actions and similar tools can all call that URL.
+
+| Priority (`Priority:` header) | On the display |
+|---|---|
+| `min` / `low` (1–2) | 4 seconds, dimmer |
+| `default` (3) | 6 seconds |
+| `high` (4) | 10 seconds, amber |
+| `urgent` (5) | 15 seconds, red. Goes ahead of other messages and wakes a sleeping display |
+
+A tag naming a colour (`Tags: green`; also red, orange, amber, yellow, cyan, blue, purple,
+pink, white) sets the text colour. Text with a title shows as "Title: message". Long messages
+scroll. Emoji and other non-ASCII characters show as `?`; curly quotes and dashes are converted.
+
+**Privacy:** messages pass through the public ntfy.sh server, and anyone who knows the topic
+can send to your display. For more control, ntfy can be self-hosted (it ships as a Docker
+image); point `NTFY_SERVER` in `config.py` at it (plain `http://` works on a local network).
+
 ## Automatic updates
 
 Once `UPDATE_REPO` in `config.py` names a GitHub repository, the clock checks it every
@@ -196,6 +231,7 @@ what the clock runs.
 | `device/app_clock.py` | The clock app |
 | `device/clockface.py` | Clock rendering: fonts, themes, roll animation, per-pixel compositing |
 | `device/text.py` | Proportional pixel font and text drawing, used by messages and apps |
+| `device/inbox.py` | Listens for ntfy messages over one streaming connection, read without blocking |
 | `device/timekeeping.py` | Local time and daylight-saving maths, NTP time sync |
 | `device/net.py` | Keeps Wi-Fi connected, reconnecting with back-off |
 | `device/config.py` | Your preferences |
@@ -203,7 +239,8 @@ what the clock runs.
 | `tools/check.sh` | Every check that must pass before a release; also run by GitHub Actions and the pre-push hook |
 | `tools/simulate.py` | Runs the real device code on a PC against mock hardware and renders preview video/images |
 | `tools/test_ota.py` | Updater tests against a fake GitHub, including broken releases and rollback |
-| `tools/test_launcher.py` | App switching, sleep, crash isolation and saved settings |
+| `tools/test_launcher.py` | App switching, sleep, crash isolation, saved settings, messages |
+| `tools/test_inbox.py` | ntfy stream parsing, reconnects, de-duplication, priorities |
 | `tools/test_timekeeping.py` | Checks local-time maths against the IANA time-zone database (2025–2035) |
 
 The board keeps UTC; local time is calculated each frame, so daylight-saving changes happen at the
