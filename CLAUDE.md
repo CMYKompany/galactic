@@ -32,6 +32,7 @@ twice. The owner can confirm it from that.
 | `device/launcher.py` | Main loop + shared services: Wi-Fi jobs (NTP, update checks), system buttons (LUX, Zzz tap = sleep, Zzz hold = next app), `Store` settings, bottom-row system overlays, app crash isolation (non-clock app crash → fall back to clock), health → `mark_good()` after 60 s. The app interface is documented at the top. |
 | `device/app_clock.py` | Clock app (buttons A–D themes, VOL± options) |
 | `device/clockface.py` | Clock rendering: fonts, themes, compositing. Hot loops use `@micropython.native` |
+| `device/text.py` | Proportional ASCII pixel font (9 rows incl. descenders), `measure()` / `draw()` |
 | `device/timekeeping.py` | RTC holds UTC; local time + DST computed per frame |
 | `device/net.py` | Non-blocking Wi-Fi connection manager |
 | `device/config.py` | Owner's preferences, `APPS` list. **Deployed by OTA**, so it is the source of truth for time zone etc. App-specific keys are prefixed (`CLOCK_…`). |
@@ -48,6 +49,13 @@ twice. The owner can confirm it from that.
   red bar and checks for a fix every minute. Other apps crashing fall back to the clock.
 - OTA delivers flat files only (no folders) with extensions `.py .json .txt .bin .jpg .png`
   (keep `EXTENSIONS` in `ota.py` and `tools/build_manifest.py` in sync).
+
+## Messages
+
+`ctx.notify(text, seconds, color)` (launcher `Messages`) takes over the display, queues, and
+scrolls text wider than ~51 px. `ANNOUNCEMENT` in config.py is shown once per new value
+(remembered in settings.json as `system.announced`). This is the basis for future remote
+notifications. No remote message channel exists yet.
 
 ## Adding an app
 

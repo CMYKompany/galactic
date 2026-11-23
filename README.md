@@ -195,6 +195,7 @@ what the clock runs.
 | `device/launcher.py` | Runs apps (~30 fps) and shared services: Wi-Fi, time, updates, brightness, sleep, settings, crash isolation |
 | `device/app_clock.py` | The clock app |
 | `device/clockface.py` | Clock rendering: fonts, themes, roll animation, per-pixel compositing |
+| `device/text.py` | Proportional pixel font and text drawing, used by messages and apps |
 | `device/timekeeping.py` | Local time and daylight-saving maths, NTP time sync |
 | `device/net.py` | Keeps Wi-Fi connected, reconnecting with back-off |
 | `device/config.py` | Your preferences |
@@ -229,6 +230,21 @@ class App:
 
 The launcher calls `frame()` about 30 times a second, then updates the display. See
 `device/launcher.py` for details.
+
+**Text and messages.** `device/text.py` is a proportional pixel font covering printable ASCII
+(7-row capitals, descenders on g j p q y). "Hello, world" is 47 px wide, so it fits the display.
+
+```python
+import text
+text.draw(ctx.gfx, "Hi", x, y, (255, 200, 120))   # or a function x -> (r, g, b)
+text.measure("Hi")                                # width in pixels
+
+ctx.notify("Meeting in 5 minutes", seconds=5)     # full-screen message over any app
+```
+
+Messages slide in, show a shrinking countdown line, then slide out and hand back to the app.
+Text too wide for the display scrolls instead. Messages queue if several arrive.
+`ANNOUNCEMENT` in `config.py` shows a one-off message once after an update delivers a new one.
 
 ### Developing
 

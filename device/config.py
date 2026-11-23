@@ -41,6 +41,11 @@ UPDATE_REPO = "CMYKompany/galactic"
 UPDATE_BRANCH = "main"
 UPDATE_MINUTES = 10
 
+# A one-off message, shown full-screen once after it changes (e.g. when an
+# update delivers a new one). Set to "" for none.
+ANNOUNCEMENT = "Hello, world"
+ANNOUNCEMENT_SECONDS = 5
+
 # ================================================================ clock app
 
 # Starting theme. The A/B/C/D buttons switch between them:

@@ -60,8 +60,9 @@ def render(pixels, scale=SCALE):
 
 
 # ------------------------------------------------------------ scenario
-def run(start_utc, stop_s, presses=(), wifi_ok=True, capture_every=2, stills=()):
-    """presses: (at_seconds, duration_seconds, switch). stills: seconds to snapshot."""
+def run(start_utc, stop_s, presses=(), wifi_ok=True, capture_every=2, stills=(), config=None):
+    """presses: (at_seconds, duration_seconds, switch). stills: seconds to snapshot.
+    config: values that override device/config.py for this run."""
     SIM.__init__()
     SIM.true_utc0 = start_utc.replace(tzinfo=dt.timezone.utc).timestamp()
     SIM.stop_ms = int(stop_s * 1000)
@@ -81,8 +82,15 @@ def run(start_utc, stop_s, presses=(), wifi_ok=True, capture_every=2, stills=())
 
     SIM.on_frame = on_frame
     for m in ("main", "launcher", "app_clock", "ota", "net", "clockface", "timekeeping",
-              "config", "secrets"):
+              "text", "config", "secrets"):
         sys.modules.pop(m, None)
+    if config:
+        import types
+        mod = types.ModuleType("config")
+        with open(os.path.join(ROOT, "device", "config.py")) as f:
+            exec(f.read(), mod.__dict__)
+        mod.__dict__.update(config)
+        sys.modules["config"] = mod
     try:
         runpy.run_path(os.path.join(ROOT, "device", "main.py"), run_name="__main__")
     except SimDone:
@@ -108,6 +116,30 @@ def save_video(frames, path, fps=15):
     proc.wait()
 
 
+def font_specimen(path):
+    import picographics
+    import text
+    chars = "".join(chr(c) for c in range(33, 127))
+    lines, line = [], ""
+    for ch in chars:   # wrap to the display width
+        if text.measure(line + ch) > 51:
+            lines.append(line)
+            line = ""
+        line += ch
+    lines.append(line)
+    imgs = []
+    for line in lines:
+        g = picographics.PicoGraphics(0)
+        text.draw(g, line, 1, 1, (255, 236, 214))
+        imgs.append(render(g.buf, 10))
+    sheet = Image.new("RGB", (imgs[0].width, sum(i.height for i in imgs)))
+    y = 0
+    for im in imgs:
+        sheet.paste(im, (0, y))
+        y += im.height
+    sheet.save(path)
+
+
 def main():
     out = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else "preview")
     os.makedirs(out, exist_ok=True)
@@ -124,26 +156,32 @@ def main():
         presses=[(16, 0.1, GU.SWITCH_B), (22, 0.1, GU.SWITCH_C), (28, 0.1, GU.SWITCH_D),
                  (34, 0.1, GU.SWITCH_VOLUME_DOWN), (38, 0.6, GU.SWITCH_BRIGHTNESS_UP),
                  (40.5, 0.1, GU.SWITCH_A)],
-        stills=[0.9, 14, 21, 27, 33, 37, 38.4, 43])
+        stills=[0.9, 3.2, 3.5, 6, 8.5, 14, 21, 27, 33, 37, 38.4, 43])
     print("tour: frames rendered", n, "captured", len(frames))
     save_video(frames, os.path.join(out, "tour.mp4"))
     for s, f in snaps.items():
         render(f).save(os.path.join(out, "tour_{:05.1f}s.png".format(s)))
 
-    # 2. Sky theme across the day (fresh settings so config defaults apply)
-    for name in ("settings.json",):
-        if os.path.exists(name):
-            os.remove(name)
+    # 2. Sky theme across the day
     for hh in (6, 7, 12, 18, 19, 23):
         utc = dt.datetime(2026, 11, 21, hh, 30) + dt.timedelta(hours=5)
         _, snaps, _ = run(utc, 6.0, presses=[(3, 0.1, GU.SWITCH_B)], stills=[5.5])
         render(snaps[5.5]).save(os.path.join(out, "sky_{:02d}30.png".format(hh)))
-        if os.path.exists("settings.json"):
-            os.remove("settings.json")
 
     # 3. No Wi-Fi reachable: dashes with error indicator
     _, snaps, _ = run(dt.datetime(2026, 11, 21, 15, 0), 8, wifi_ok=False, stills=[7])
     render(snaps[7]).save(os.path.join(out, "wifi_error.png"))
+    # 4. A long message scrolls
+    long_msg = "Meeting in 5 minutes: Quarterly review (Room 4B) - bring the budget!"
+    frames, snaps, _ = run(dt.datetime(2026, 11, 21, 15, 0), 22,
+                           config={"ANNOUNCEMENT": long_msg, "ANNOUNCEMENT_SECONDS": 3},
+                           stills=[4.5, 6, 8, 10, 12])
+    save_video(frames, os.path.join(out, "message_scroll.mp4"))
+    for s_ in sorted(snaps):
+        render(snaps[s_]).save(os.path.join(out, "scroll_{:04.1f}s.png".format(s_)))
+
+    # 5. Font specimen
+    font_specimen(os.path.join(out, "font.png"))
     print("wrote", out)
     if ERRORS:
         print("FAILED: the clock raised", len(ERRORS), "exception(s)")

@@ -29,6 +29,11 @@ RED_APP = b'''
 class App:
     def __init__(self, ctx):
         self.gfx = ctx.gfx
+        self.ctx = ctx
+    def button(self, name, now):
+        if name == "A":
+            self.ctx.notify("First", 2)
+            self.ctx.notify("Second", 2, color=(0, 255, 0))
     def frame(self, now, t):
         self.gfx.set_pen(self.gfx.create_pen(200, 0, 0))
         self.gfx.clear()
@@ -45,7 +50,8 @@ class App:
 '''
 
 MODULES = ("main", "launcher", "app_clock", "app_red", "app_crashy", "ota", "net",
-           "clockface", "timekeeping", "config", "secrets")
+           "clockface", "timekeeping", "text", "config", "secrets")
+MSG = (255, 236, 214)   # default message colour
 
 
 def make_board(apps, extra_config=""):
@@ -55,7 +61,8 @@ def make_board(apps, extra_config=""):
             with open(os.path.join(DEVICE, name), "rb") as f:
                 data = f.read()
             if name == "config.py":
-                data += "\nAPPS = {!r}\nUPDATE_REPO = ''\n{}\n".format(apps, extra_config).encode()
+                data += "\nAPPS = {!r}\nUPDATE_REPO = ''\nANNOUNCEMENT = ''\n{}\n".format(
+                    apps, extra_config).encode()
             with open(os.path.join(board, name), "wb") as f:
                 f.write(data)
     for name, data in (("app_red.py", RED_APP), ("app_crashy.py", CRASHY_APP)):
@@ -167,6 +174,48 @@ def test_brightness_saved_until_config_changes():
     _, _, _, b3 = boot(board, 2)
     assert abs(b3 - 0.2) < 1e-6, b3               # new config value wins
     print("ok  button settings persist, but a changed config value wins")
+
+
+def has_color(buf, color):
+    return any(px == color for row in buf for px in row)
+
+
+def test_announcement_shows_once_then_returns_to_app():
+    board = make_board(("red",), 'ANNOUNCEMENT = "Hello, world"\nANNOUNCEMENT_SECONDS = 5')
+    _, log, frames, _ = boot(board, 12)
+    assert "Message: Hello, world" in log, log
+    assert is_solid(frame_at(frames, 2), (200, 0, 0))          # app first
+    assert has_color(frame_at(frames, 5), MSG)                 # message after ~3 s
+    assert not has_color(frame_at(frames, 5), (200, 0, 0))
+    assert is_solid(frame_at(frames, 10), (200, 0, 0))         # back to the app
+    _, log, frames, _ = boot(board, 8)                         # restart
+    assert "Message:" not in log, "announcement must only show once"
+    print("ok  announcement shows once, then the app resumes")
+
+
+def test_apps_can_queue_messages():
+    board = make_board(("red",))
+    _, log, frames, _ = boot(board, 9, presses=[(1, 0.1, GU.SWITCH_A)])
+    assert log.index("Message: First") < log.index("Message: Second"), log
+    assert has_color(frame_at(frames, 2.5), MSG)
+    assert has_color(frame_at(frames, 5), (0, 255, 0))         # second, in its colour
+    assert is_solid(frame_at(frames, 8.5), (200, 0, 0))
+    print("ok  apps can queue messages; each shows in turn")
+
+
+def test_long_message_scrolls():
+    board = make_board(("red",), 'ANNOUNCEMENT = "This message is far too long to fit"\n'
+                                 'ANNOUNCEMENT_SECONDS = 2')
+    _, _, frames, _ = boot(board, 12)
+
+    def columns(buf):
+        return [tuple(buf[y][x] == MSG for y in range(10)) for x in range(53)]
+
+    a, b = columns(frame_at(frames, 6)), columns(frame_at(frames, 7))
+    # one second later the same columns appear ~20 px further left
+    best = max(range(0, 30), key=lambda d: sum(a[x] == b[x - d] for x in range(d, 53)))
+    assert 17 <= best <= 23, best
+    print("ok  long messages scroll")
 
 
 def main():

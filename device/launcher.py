@@ -21,6 +21,10 @@
 #       def quiet(self, now): return True     # False = not a good moment for a
 #                                             #   brief network pause (animation)
 #
+# Messages: ctx.notify("text", seconds=5, color=(r, g, b)) shows a message
+# full-screen over the current app (queued if one is already showing; long
+# text scrolls), then returns to the app, calling its start() again.
+#
 # then add its name to APPS in config.py. `now` is time.ticks_ms(); `t` is
 # seconds since start-up as a float, for animation. The launcher calls
 # gu.update() and paces frames; apps just draw.
@@ -34,6 +38,7 @@ from galactic import GalacticUnicorn
 from picographics import PicoGraphics, DISPLAY_GALACTIC_UNICORN as DISPLAY
 
 import config
+import text
 from net import WiFi
 from timekeeping import TimeKeeper, sync_ntp
 
@@ -103,8 +108,9 @@ class Store:
 class Context:
     """What the launcher shares with apps."""
 
-    def __init__(self, gu, gfx, store, clock, net):
+    def __init__(self, gu, gfx, store, clock, net, notify):
         self.gu = gu
+        self.notify = notify
         self.gfx = gfx
         self.width = W
         self.height = H
@@ -217,6 +223,121 @@ class Overlay:
             self.kind = None
 
 
+# =================================================================== messages
+
+def _ease(p):
+    if p <= 0.0:
+        return 0.0
+    if p >= 1.0:
+        return 1.0
+    return 1.0 - (1.0 - p) * (1.0 - p) * (1.0 - p)   # ease-out cubic
+
+
+class Messages:
+    """Full-screen messages over the current app, one at a time."""
+
+    IN_MS = 380
+    OUT_MS = 320
+    SCROLL_PX_PER_S = 20
+    COLOR = (255, 236, 214)
+    DESCENDERS = "gjpqy,;"
+
+    def __init__(self, gfx):
+        self.gfx = gfx
+        self.queue = []
+        self.cur = None
+
+    def add(self, msg, seconds=5, color=None, not_before=None):
+        msg = str(msg).replace("\n", " ")
+        if msg:
+            self.queue.append((msg, max(1.0, float(seconds)), color or self.COLOR, not_before))
+
+    def busy(self):
+        return self.cur is not None or bool(self.queue)
+
+    def active(self, now):
+        """True while a message owns the display. Starts queued ones."""
+        if self.cur is None and self.queue:
+            nb = self.queue[0][3]
+            if nb is None or time.ticks_diff(now, nb) >= 0:
+                msg, seconds, color, _ = self.queue.pop(0)
+                width = text.measure(msg)
+                scroll = width > W - 2
+                if scroll:
+                    one_pass = (W + width) * 1000 // self.SCROLL_PX_PER_S
+                    passes = max(1, int(seconds * 1000 + one_pass - 1) // one_pass)
+                    hold = one_pass * passes
+                else:
+                    hold = int(seconds * 1000)
+                has_desc = False
+                for ch in msg:
+                    if ch in self.DESCENDERS:
+                        has_desc = True
+                        break
+                self.cur = {"msg": msg, "color": color, "w": width, "scroll": scroll,
+                            "t0": now, "hold": hold, "y": 1 if has_desc else 2,
+                            "pass_ms": one_pass if scroll else 0}
+                print("Message:", msg)
+        return self.cur is not None
+
+    def draw(self, now):
+        """Draw the current message. Returns False when it has finished."""
+        m = self.cur
+        gfx = self.gfx
+        age = time.ticks_diff(now, m["t0"])
+        total = self.IN_MS + m["hold"] + self.OUT_MS
+        if age >= total:
+            self.cur = None
+            return False
+
+        # backdrop: deep blue-black, fading in and out with the message
+        if age < self.IN_MS:
+            k = _ease(age / self.IN_MS)
+        elif age > self.IN_MS + m["hold"]:
+            k = 1.0 - _ease((age - self.IN_MS - m["hold"]) / self.OUT_MS)
+        else:
+            k = 1.0
+        gfx.set_pen(gfx.create_pen(int(2 * k), int(3 * k), int(12 * k)))
+        gfx.clear()
+
+        c = m["color"]
+        y = m["y"]
+        if m["scroll"]:
+            # enters from the right, leaves on the left, repeating as needed
+            t_in = age - self.IN_MS
+            if t_in < 0:
+                return True
+            if t_in >= m["hold"]:
+                return True
+            x = W - (t_in % m["pass_ms"]) * self.SCROLL_PX_PER_S // 1000
+            text.draw(gfx, m["msg"], x, y, c)
+        else:
+            # rises into place, holds, then rises out of view
+            if age < self.IN_MS:
+                dy = int((1.0 - _ease(age / self.IN_MS)) * 10 + 0.5)
+                fade = _ease(age / self.IN_MS)
+            elif age > self.IN_MS + m["hold"]:
+                p = (age - self.IN_MS - m["hold"]) / self.OUT_MS
+                dy = -int(_ease(p) * 10 + 0.5)
+                fade = 1.0 - p
+            else:
+                dy = 0
+                fade = 1.0
+            col = (int(c[0] * fade), int(c[1] * fade), int(c[2] * fade))
+            text.draw(gfx, m["msg"], (W - m["w"]) // 2, y + dy, col,
+                      clip_top=0, clip_bottom=H - 1)
+
+            # countdown: a faint line along the bottom that shrinks to nothing
+            if self.IN_MS <= age <= self.IN_MS + m["hold"]:
+                left = 1.0 - (age - self.IN_MS) / m["hold"]
+                n = int(left * 34 + 0.5)
+                x0 = (W - 34) // 2
+                gfx.set_pen(gfx.create_pen(c[0] // 5, c[1] // 5, c[2] // 5))
+                for i in range(n):
+                    gfx.pixel(x0 + i, H - 1)
+        return True
+
+
 # =================================================================== launcher
 
 class Launcher:
@@ -237,7 +358,8 @@ class Launcher:
         net = WiFi(WIFI_SSID, WIFI_PASSWORD, country=cfg("WIFI_COUNTRY", ""))
         if not net.enabled:
             print("No Wi-Fi details: copy secrets.example.py to secrets.py and fill it in.")
-        self.ctx = Context(self.gu, self.gfx, self.store, clock, net)
+        self.messages = Messages(self.gfx)
+        self.ctx = Context(self.gu, self.gfx, self.store, clock, net, self.messages.add)
         self.buttons = Buttons(self.gu)
         self.overlay = Overlay(self.gfx)
 
@@ -306,6 +428,14 @@ class Launcher:
             print("Version", updater.version())
             if updater.pending():
                 self.overlay.show("update", now)
+
+        # A one-off announcement from config.py, shown once per new text
+        ann = cfg("ANNOUNCEMENT", "")
+        if ann and self.store.get("system.announced", "") != ann:
+            self.messages.add(ann, cfg("ANNOUNCEMENT_SECONDS", 5),
+                              not_before=time.ticks_add(now, 3000))
+            self.store.set("system.announced", ann, "", now)
+        showing_message = False
 
         frame_ms = max(10, 1000 // int(cfg("FPS", 30)))
         display_on = True
@@ -380,7 +510,13 @@ class Launcher:
 
             # ------------------------------------------------ draw
             if display_on:
-                self._call("frame", now, t)
+                if self.messages.active(now) and self.messages.draw(now):
+                    showing_message = True
+                else:
+                    if showing_message:       # a message just ended
+                        showing_message = False
+                        self._call("start", now)
+                    self._call("frame", now, t)
                 self.overlay.draw(now)
             else:
                 self.gfx.set_pen(self.gfx.create_pen(0, 0, 0))
