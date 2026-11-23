@@ -1,4 +1,4 @@
-# Galactic Unicorn Clock
+# Galactic Unicorn Clock (Pico W or Pico 2 W)
 #
 # Runs automatically when the Unicorn is powered on.
 #

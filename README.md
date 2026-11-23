@@ -1,6 +1,6 @@
 # Galactic Unicorn Clock
 
-A clock for the Pimoroni **Galactic Unicorn (Pico 2 W, 53×11 LEDs)**, designed to sit in a
+A clock for the Pimoroni **Galactic Unicorn (53×11 LEDs)** — either version, Pico W or Pico 2 W — designed to sit in a
 video-call backdrop: large anti-aliased digits that roll when they change, calm animated
 backgrounds, and brightness you can tune for a webcam.
 
@@ -18,11 +18,11 @@ A 44-second simulated run (boot, Wi-Fi sync, a minute rollover, every theme) is 
 
 ## What you need
 
-- The Galactic Unicorn and a **micro-USB cable that carries data** (some phone-charging cables
+- The Galactic Unicorn (Pico W or Pico 2 W version) and a **micro-USB cable that carries data** (some phone-charging cables
   are power-only — if no drive appears in step 1, try another cable).
 - A Windows, Mac or Linux computer. **No Raspberry Pi and no Docker are needed** — the Pico 2 W
   soldered to the back of the Unicorn is the computer. Your PC is only used to copy files onto it.
-- A **2.4 GHz** Wi-Fi network (the Pico 2 W can't use 5 GHz-only networks). Wi-Fi is used only to
+- A **2.4 GHz** Wi-Fi network (the Pico can't use 5 GHz-only networks). Wi-Fi is used only to
   fetch the correct time.
 
 ## Setup (about 15 minutes, once)
@@ -30,22 +30,31 @@ A 44-second simulated run (boot, Wi-Fi sync, a minute rollover, every theme) is 
 ### 1 · Put the latest Pimoroni firmware on the board
 
 1. Download the newest firmware from
-   **https://github.com/pimoroni/unicorn/releases/latest**. Under *Assets*, pick the file whose
-   name starts with **`pico2_w_galactic`** and ends in **`.uf2`**.
-   (Not `pico_w_…` — that's for the older board. The `-with-filesystem` version also works; it
-   just includes Pimoroni's demos.)
+   **https://github.com/pimoroni/unicorn/releases/latest**. Under *Assets* there are two kinds
+   of `.uf2` file; which one you need depends on the Pico on the back of your Unicorn:
+
+   | Printed on the Pico | Drive name in step 3 | Firmware file starts with |
+   |---|---|---|
+   | **Pico W** (older Unicorns) | `RPI-RP2` | **`pico_w_galactic`** |
+   | **Pico 2 W** | `RP2350` | **`pico2_w_galactic`** |
+
+   If you copy the wrong one, nothing happens: the file just sits on the drive. Download the
+   other one and try again. (The `-with-filesystem` versions also work; they just include
+   Pimoroni's demos.)
 2. Plug the Unicorn into your computer.
 3. On the back of the Unicorn, **hold the BOOTSEL button** on the Pico, **tap RESET**, then let go
-   of BOOTSEL. A USB drive called **RP2350** appears.
-4. Drag the `.uf2` file onto that drive. It disappears and the board restarts on its own.
+   of BOOTSEL. A USB drive called **RPI-RP2** or **RP2350** appears.
+4. Drag the `.uf2` file onto that drive. Within a few seconds the drive disappears and the board
+   restarts on its own.
 
 ### 2 · Install Thonny (a simple editor that talks to the board)
 
 1. Download and install from **https://thonny.org**.
 2. Open Thonny. With the Unicorn plugged in, click the text in the **bottom-right corner**
    (it starts out as *Local Python 3 • Thonny's Python*, meaning your PC) and choose
-   **MicroPython (Raspberry Pi Pico)**. This is the right choice for the Pico 2 W too.
-3. The *Shell* panel at the bottom should show something like `MicroPython v1.2x … Pico 2 W`.
+   **MicroPython (Raspberry Pi Pico)**. This is the right choice for both board versions.
+3. The *Shell* panel at the bottom should show something like `MicroPython v1.2x … Pico W`
+   (or `Pico 2 W`).
    If it doesn't, click the red **Stop** button in the toolbar.
 
    Still not connecting? Open **Tools → Options → Interpreter**, choose
@@ -104,6 +113,8 @@ resets them to your new values.
   look alive without pulling attention.
 - If the background looks washed out on camera while the digits look right, lower
   `BACKGROUND_LEVEL` in `config.py` (e.g. `0.6`).
+- On the older **Pico W** boards the background animation may be a little less smooth (no
+  hardware floating point). If it looks choppy, set `FPS = 20` in `config.py`.
 - If you see faint rolling bands across the display on video, nudge the brightness up or down a
   step. They come from the LED refresh beating against the camera's frame rate, and the banding
   depends on the brightness level.
