@@ -1,11 +1,11 @@
-# Galactic Unicorn Clock - start-up
+# Galactic Unicorn - start-up
 #
 # CORE FILE: keep this tiny. It runs before anything else so that, whatever
-# happens to the clock code, the board can still roll back or fetch a fix.
+# happens to the apps or launcher, the board can still roll back or fetch a fix.
 #
 # Start-up order
 #   1. ota.boot()   - roll back an update that never started cleanly
-#   2. app.run()    - the clock (also checks GitHub for updates periodically)
+#   2. launcher     - runs the apps (also checks GitHub for updates periodically)
 #   3. on a crash   - roll back a just-installed update, otherwise wait in
 #                     recovery mode for a fixed version to be published
 
@@ -30,8 +30,8 @@ updater = ota.Updater(REPO, BRANCH)
 updater.boot()
 
 try:
-    import app
-    app.run(updater)
+    import launcher
+    launcher.run(updater)
 except KeyboardInterrupt:
     raise                       # Stop button in Thonny
 except Exception as e:  # noqa: BLE001

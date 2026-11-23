@@ -22,8 +22,8 @@ from sim import SIM, SimDone, install_time  # noqa: E402
 install_time()
 sys.print_exception = lambda e: traceback.print_exception(e)
 
-APP_MODULES = ("main", "app", "ota", "net", "clockface", "timekeeping", "config", "secrets")
-CONFIG_EXTRA = '\nUPDATE_REPO = "test/clock"\n'
+APP_MODULES = ("main", "launcher", "app_clock", "ota", "net", "clockface", "timekeeping",
+               "config", "secrets")
 
 
 # ------------------------------------------------------------------ helpers
@@ -34,7 +34,6 @@ def device_files():
         if name.endswith(".py") and not name.startswith("secrets"):
             with open(os.path.join(DEVICE, name), "rb") as f:
                 out[name] = f.read()
-    out["config.py"] = out["config.py"] + CONFIG_EXTRA.encode()
     return out
 
 
@@ -126,13 +125,13 @@ def test_bad_fingerprint_changes_nothing():
     files = device_files()
     board = make_board(files)
     ota = fresh_ota(board)
-    v2_files = dict(files, **{"app.py": files["app.py"] + b"\n# v2\n"})
+    v2_files = dict(files, **{"launcher.py": files["launcher.py"] + b"\n# v2\n"})
     _, served = release(v2_files)
-    served["app.py"] = b"tampered"
+    served["launcher.py"] = b"tampered"
     requests.serve(served)
     u = ota.Updater("test/clock")
     assert u.check() == "failed"
-    assert read(board, "app.py") == files["app.py"]
+    assert read(board, "launcher.py") == files["launcher.py"]
     assert not [n for n in os.listdir(board) if n.endswith((".new", ".bak"))]
     print("ok  fingerprint mismatch leaves the board untouched")
 
@@ -169,19 +168,19 @@ def test_crashing_update_rolls_back_and_is_skipped():
     u.check()
     u.mark_good()
 
-    broken = dict(v1_files, **{"app.py": b"raise RuntimeError('broken release')\n"})
+    broken = dict(v1_files, **{"launcher.py": b"raise RuntimeError('broken release')\n"})
     v2, served2 = release(broken)
     requests.serve(served2)
     assert u.check() == "installed"
 
     assert run_main(board, 30) == "reset"      # crashes -> rollback -> restart
-    assert read(board, "app.py") == v1_files["app.py"]
+    assert read(board, "launcher.py") == v1_files["launcher.py"]
     st = state(board)
     assert st["version"] == v1 and v2 in st["bad"] and not st["pending"], st
 
     ota = fresh_ota(board)
     assert ota.Updater("test/clock").check() == "none"   # never re-installs the bad one
-    fixed = dict(v1_files, **{"app.py": v1_files["app.py"] + b"\n# fixed\n"})
+    fixed = dict(v1_files, **{"launcher.py": v1_files["launcher.py"] + b"\n# fixed\n"})
     v3, served3 = release(fixed)
     requests.serve(served3)
     assert ota.Updater("test/clock").check() == "installed"  # but a newer one is fine

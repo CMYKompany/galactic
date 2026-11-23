@@ -14,13 +14,15 @@ import sys
 
 DEVICE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "device")
 MANIFEST = os.path.join(DEVICE, "manifest.json")
+# must match EXTENSIONS in device/ota.py
+EXTENSIONS = (".py", ".json", ".txt", ".bin", ".jpg", ".png")
 EXCLUDE = {"manifest.json", "secrets.py", "secrets.example.py", "settings.json", "ota.json"}
 
 
 def build():
     files = {}
     for name in sorted(os.listdir(DEVICE)):
-        if name in EXCLUDE or not name.endswith((".py", ".json")):
+        if name in EXCLUDE or not name.endswith(EXTENSIONS) or name.startswith("."):
             continue
         with open(os.path.join(DEVICE, name), "rb") as f:
             files[name] = hashlib.sha256(f.read()).hexdigest()

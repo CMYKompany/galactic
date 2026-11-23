@@ -80,7 +80,8 @@ def run(start_utc, stop_s, presses=(), wifi_ok=True, capture_every=2, stills=())
             snaps[pending.pop(0)] = copy
 
     SIM.on_frame = on_frame
-    for m in ("main", "app", "ota", "net", "clockface", "timekeeping", "config", "secrets"):
+    for m in ("main", "launcher", "app_clock", "ota", "net", "clockface", "timekeeping",
+              "config", "secrets"):
         sys.modules.pop(m, None)
     try:
         runpy.run_path(os.path.join(ROOT, "device", "main.py"), run_name="__main__")

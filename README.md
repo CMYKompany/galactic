@@ -1,8 +1,13 @@
-# Galactic Unicorn Clock
+# Galactic
 
-A clock for the Pimoroni **Galactic Unicorn (53×11 LEDs)** — either version, Pico W or Pico 2 W — designed to sit in a
-video-call backdrop: large anti-aliased digits that roll when they change, calm animated
-backgrounds, and brightness you can tune for a webcam.
+Software for the Pimoroni **Galactic Unicorn (53×11 LEDs)**, either the Pico W or Pico 2 W
+version. It is a small platform: a launcher that provides Wi-Fi, accurate local time,
+brightness, sleep, saved settings and **automatic updates from this repository**, plus apps
+that run on top of it.
+
+The first app is a **clock** designed to sit in a video-call backdrop: large anti-aliased
+digits that roll when they change, calm animated backgrounds, and brightness you can tune for a
+webcam.
 
 ![Aurora theme](docs/aurora.png)
 
@@ -22,8 +27,8 @@ A 44-second simulated run (boot, Wi-Fi sync, a minute rollover, every theme) is 
   are power-only — if no drive appears in step 1, try another cable).
 - A Windows, Mac or Linux computer. **No Raspberry Pi and no Docker are needed** — the Pico 2 W
   soldered to the back of the Unicorn is the computer. Your PC is only used to copy files onto it.
-- A **2.4 GHz** Wi-Fi network (the Pico can't use 5 GHz-only networks). Wi-Fi is used only to
-  fetch the correct time.
+- A **2.4 GHz** Wi-Fi network (the Pico can't use 5 GHz-only networks). Wi-Fi is used to fetch
+  the correct time and updates.
 
 ## Setup (about 15 minutes, once)
 
@@ -62,27 +67,25 @@ A 44-second simulated run (boot, Wi-Fi sync, a minute rollover, every theme) is 
    If no such entry exists, Windows can't see the board: try another USB cable (many are
    charge-only) or another USB port, or repeat step 1.
 
-### 3 · Fill in your settings
+### 3 · Add your Wi-Fi details
 
-All of the files that go on the board are in the [`device/`](device/) folder.
+All of the files that go on the board are in the [`device/`](device/) folder. Download the
+repository (green **Code** button → **Download ZIP**) and unzip it.
 
-1. Make a copy of `device/secrets.example.py` and name the copy **`secrets.py`**. Open it and enter
-   your Wi-Fi name and password.
-2. Open `device/config.py` and set your time zone. The two lines that matter:
-   ```python
-   UTC_OFFSET_HOURS = -5   # your *winter* offset: Eastern -5, Central -6, Mountain -7, Pacific -8
-   DST_RULE = "US"         # "US", "EU", "AU" or "NONE"
-   ```
-   Daylight saving is handled automatically; you never adjust the clock by hand.
-   The other settings (theme, 12/24 hour, brightness) can be changed later with the buttons.
+Make a copy of `device/secrets.example.py` and name the copy **`secrets.py`**. Open it and enter
+your Wi-Fi name and password. This file stays on your computer and the board; it is never
+uploaded to GitHub.
+
+Everything else (time zone, apps, defaults) is in `device/config.py`, which arrives with
+updates, so change it in this repository rather than on the board.
 
 ### 4 · Copy the files to the board
 
 1. In Thonny, open **View → Files**. The top pane is your computer; the bottom pane is the board.
 2. In the top pane, browse to the `device` folder.
 3. Select **every `.py` file** in the folder **except `secrets.example.py`** (Ctrl/Cmd-click):
-   `app.py`, `clockface.py`, `config.py`, `main.py`, `net.py`, `ota.py`, `secrets.py`,
-   `timekeeping.py`.
+   `app_clock.py`, `clockface.py`, `config.py`, `launcher.py`, `main.py`,
+   `net.py`, `ota.py`, `secrets.py`, `timekeeping.py`.
 4. Right-click → **Upload to /**. If it asks to overwrite files (for example Pimoroni's demo
    `main.py`, or an older version of the clock), say yes.
 
@@ -99,16 +102,24 @@ seconds the time rolls in.
 
 ## Buttons
 
+**System (same in every app)**
+
+| Button | Action |
+|---|---|
+| **LUX + / LUX −** (hold) | Brightness. A level bar shows along the bottom |
+| **Zzz** tap | Display off / on (any button also wakes it) |
+| **Zzz** hold (¾ s) | Next app. Dots along the bottom show which one (needs more than one app in `APPS`) |
+
+**Clock app**
+
 | Button | Action |
 |---|---|
 | **A / B / C / D** | Theme: Aurora / Sky / Amber / Prism |
 | **Volume +** | 12-hour ⇄ 24-hour |
 | **Volume −** | Seconds: thin progress bar → small digits → hidden |
-| **LUX + / LUX −** (hold) | Brightness — a level bar shows along the bottom |
-| **Zzz** | Display off / on (any button also wakes it) |
 
-Button changes are remembered across power cycles. Editing `config.py` and re-uploading it
-resets them to your new values.
+Button changes are remembered across power cycles. If an update changes the same setting in
+`config.py`, the new value replaces the remembered one.
 
 ## Tips for video calls
 
@@ -117,7 +128,7 @@ resets them to your new values.
 - **Amber** is the least distracting theme on camera. **Aurora** and **Sky** move slowly, so they
   look alive without pulling attention.
 - If the background looks washed out on camera while the digits look right, lower
-  `BACKGROUND_LEVEL` in `config.py` (e.g. `0.6`).
+  `CLOCK_BACKGROUND_LEVEL` in `config.py` (e.g. `0.6`).
 - On the older **Pico W** boards the background animation may be a little less smooth (no
   hardware floating point). If it looks choppy, set `FPS = 20` in `config.py`.
 - If you see faint rolling bands across the display on video, nudge the brightness up or down a
@@ -130,10 +141,10 @@ resets them to your new values.
 |---|---|
 | Dashes with a light sweeping underneath | Connecting to Wi-Fi — normally a few seconds. |
 | Dashes with a pulsing **red** mark underneath | Wi-Fi failed. Check `secrets.py` (exact name and password, case-sensitive) and that the network is 2.4 GHz. It keeps retrying on its own. |
-| Time is off by whole hours | `UTC_OFFSET_HOURS` should be your **winter** offset; `DST_RULE` handles summer. |
+| Time is off by whole hours | `UTC_OFFSET_HOURS` in `config.py` should be your **winter** offset; `DST_RULE` handles summer. |
 | Nothing at all | Press **Zzz** (the display may be switched off), or raise brightness with LUX +. |
 | A green light sweeps along the bottom twice | An update was just installed. |
-| A short **red** bar pulsing at the bottom, no digits | The clock code crashed. The board checks for a fixed version every minute and installs it on its own. |
+| A short **red** bar pulsing at the bottom, nothing else | The launcher or clock crashed. The board checks for a fixed version every minute and installs it on its own. (If any *other* app crashes, the board switches to the clock instead.) |
 
 To see what the clock is doing, connect with Thonny and click **Stop**, then **Run**
 (`main.py` open) — progress messages appear in the Shell.
@@ -145,7 +156,7 @@ pip install mpremote
 ```
 
 ```bash
-cd device && mpremote cp app.py clockface.py config.py main.py net.py ota.py secrets.py timekeeping.py : + reset
+cd device && mpremote cp app_clock.py clockface.py config.py launcher.py main.py net.py ota.py secrets.py timekeeping.py : + reset
 ```
 
 ---
@@ -165,7 +176,8 @@ Once `UPDATE_REPO` in `config.py` names a GitHub repository, the clock checks it
    times without getting that far, the old files are restored automatically and that version is
    skipped.
 
-`secrets.py` (your Wi-Fi password) and the button-press settings are never touched by updates.
+Updates can add, change or remove apps as well as the system itself. `secrets.py` (your Wi-Fi
+password) and the button-press settings are never touched by updates.
 Updates use only the Wi-Fi; the computer the board is plugged into doesn't matter.
 
 **Security note:** MicroPython's HTTPS library doesn't verify server certificates. Someone who
@@ -178,10 +190,11 @@ what the clock runs.
 
 | File | Role |
 |---|---|
-| `device/main.py` | Start-up: runs the updater's safety checks, then the clock; crash handling |
+| `device/main.py` | Start-up: runs the updater's safety checks, then the launcher; crash handling |
 | `device/ota.py` | Automatic updates: download, verify, install, roll back, recovery mode |
-| `device/app.py` | Main loop (~30 fps): buttons, saved settings, time sync and update checks |
-| `device/clockface.py` | Fonts, themes, roll animation, per-pixel compositing (background → halo → digits → overlays) |
+| `device/launcher.py` | Runs apps (~30 fps) and shared services: Wi-Fi, time, updates, brightness, sleep, settings, crash isolation |
+| `device/app_clock.py` | The clock app |
+| `device/clockface.py` | Clock rendering: fonts, themes, roll animation, per-pixel compositing |
 | `device/timekeeping.py` | Local time and daylight-saving maths, NTP time sync |
 | `device/net.py` | Keeps Wi-Fi connected, reconnecting with back-off |
 | `device/config.py` | Your preferences |
@@ -189,10 +202,33 @@ what the clock runs.
 | `tools/check.sh` | Every check that must pass before a release; also run by GitHub Actions and the pre-push hook |
 | `tools/simulate.py` | Runs the real device code on a PC against mock hardware and renders preview video/images |
 | `tools/test_ota.py` | Updater tests against a fake GitHub, including broken releases and rollback |
+| `tools/test_launcher.py` | App switching, sleep, crash isolation and saved settings |
 | `tools/test_timekeeping.py` | Checks local-time maths against the IANA time-zone database (2025–2035) |
 
 The board keeps UTC; local time is calculated each frame, so daylight-saving changes happen at the
 right moment with no network needed.
+
+### Writing an app
+
+Create `device/app_<name>.py` with a class called `App`, then add `"<name>"` to `APPS` in
+`config.py`:
+
+```python
+class App:
+    def __init__(self, ctx):          # ctx.gfx, ctx.width, ctx.height, ctx.store,
+        self.ctx = ctx                # ctx.local_time(now), ctx.net_status(), ctx.cfg(...)
+
+    def frame(self, now, t):          # draw a whole frame into ctx.gfx (53 x 11)
+        ...
+
+    # optional
+    def start(self, now): ...         # became visible
+    def button(self, name, now): ...  # "A" "B" "C" "D" "VOL_UP" "VOL_DOWN"
+    def quiet(self, now): ...         # False = don't pause for network now
+```
+
+The launcher calls `frame()` about 30 times a second, then updates the display. See
+`device/launcher.py` for details.
 
 ### Developing
 

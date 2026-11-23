@@ -1,7 +1,7 @@
-# Galactic Unicorn Clock - over-the-air updates from GitHub
+# Galactic Unicorn - over-the-air updates from GitHub
 #
 # CORE FILE: main.py and this file are what make remote updates possible.
-# Keep them small, self-contained (no imports from the clock code) and change
+# Keep them small, self-contained (no imports from the launcher or apps) and change
 # them with extra care.
 #
 # How it works
@@ -27,6 +27,8 @@ import time
 
 STATE_FILE = "ota.json"
 PROTECTED = ("secrets.py", "settings.json", STATE_FILE)
+# file types an update may deliver (code, data, images, fonts...)
+EXTENSIONS = (".py", ".json", ".txt", ".bin", ".jpg", ".png")
 MAX_PENDING_BOOTS = 3
 USER_AGENT = "galactic-unicorn-clock"
 
@@ -74,7 +76,7 @@ def _safe_name(name):
     # flat files only, no paths, nothing board-specific
     return (isinstance(name, str) and 0 < len(name) <= 40 and "/" not in name
             and "\\" not in name and not name.startswith(".") and name not in PROTECTED
-            and (name.endswith(".py") or name.endswith(".json")))
+            and any(name.endswith(e) for e in EXTENSIONS))
 
 
 def load_state():
@@ -269,7 +271,7 @@ def _reset():
 
 
 def _show_error(level):
-    """Dim red bar along the bottom edge: 'the clock code has crashed'."""
+    """Dim red bar along the bottom edge: 'the launcher or an app has crashed'."""
     try:
         from galactic import GalacticUnicorn
         from picographics import PicoGraphics, DISPLAY_GALACTIC_UNICORN
@@ -287,7 +289,7 @@ def _show_error(level):
 
 
 def recover(updater, ssid, password):
-    """The clock code crashed and there's no update to roll back. Keep Wi-Fi
+    """The launcher or clock crashed and there's no update to roll back. Keep Wi-Fi
     up and check for a fix every minute; restart once one is installed.
     Restarts anyway after 30 minutes in case the fault was temporary."""
     print("OTA: recovery mode - waiting for a fixed version")

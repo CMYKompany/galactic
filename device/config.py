@@ -1,13 +1,19 @@
-# Galactic Unicorn Clock - settings
+# Galactic Unicorn - settings
 #
-# Edit the values below, then copy this file to the Unicorn.
-# Wi-Fi details live in secrets.py (kept separate so they never end up on GitHub).
+# This file is delivered by automatic updates from GitHub, so change it in the
+# repository rather than on the board. Wi-Fi details live only on the board,
+# in secrets.py.
 #
-# Button presses on the device (theme, 12/24h, brightness...) are remembered
-# across restarts. If you change a value here, the board picks up your new
-# value on the next restart and forgets the button-press overrides.
+# Button changes on the device (theme, brightness, ...) are remembered across
+# restarts. If a value here changes, the new value replaces the remembered one
+# for that setting.
 
-# ---------------------------------------------------------------- Time zone
+# ================================================================ system
+
+# Apps, in the order a long press of Zzz cycles through them.
+# Each name loads app_<name>.py. The first one runs after a fresh install.
+APPS = ("clock",)
+
 # Your STANDARD (winter) offset from UTC, in hours. Half hours are fine (5.5).
 #   US Eastern -5 | Central -6 | Mountain -7 | Pacific -8 | Alaska -9 | Hawaii -10
 #   UK 0 | Central Europe 1 | Eastern Europe 2 | India 5.5 | Sydney 10
@@ -20,35 +26,33 @@ UTC_OFFSET_HOURS = -5
 #   NONE - no daylight saving (Arizona, Hawaii, India, Japan...)
 DST_RULE = "US"
 
-# ---------------------------------------------------------------- Look
+# 0.0 - 1.0. LEDs are very bright on webcams; 0.2 - 0.4 is usually right.
+# The LUX +/- buttons adjust this live.
+BRIGHTNESS = 0.3
+
+FPS = 30                # animation frame rate (try 20 if animation looks choppy)
+WIFI_COUNTRY = "US"     # two-letter country code for Wi-Fi regulations
+NTP_HOST = "pool.ntp.org"
+RESYNC_HOURS = 6        # how often to re-check the time over the internet
+
+# Automatic updates: the board checks this GitHub repository and installs new
+# versions on its own. Set UPDATE_REPO = "" to switch them off.
+UPDATE_REPO = "CMYKompany/galactic"
+UPDATE_BRANCH = "main"
+UPDATE_MINUTES = 10
+
+# ================================================================ clock app
+
 # Starting theme. The A/B/C/D buttons switch between them:
 #   A "aurora" - slow drifting northern-lights background, warm white digits
 #   B "sky"    - background follows the real sky: dawn, day, dusk, starry night
 #   C "amber"  - black background, glowing amber digits (calmest on camera)
 #   D "prism"  - black background, slowly drifting rainbow digits
-THEME = "aurora"
-
-TWELVE_HOUR = True      # Volume + button toggles 12/24 hour
-SECONDS = "bar"         # "bar", "digits" or "none" (Volume - button cycles)
-COLON_PULSE = True      # the colon gently breathes once per second
-
-# 0.0 - 1.0. LEDs are very bright on webcams; 0.2 - 0.4 is usually right.
-# The LUX +/- buttons adjust this live.
-BRIGHTNESS = 0.3
+CLOCK_THEME = "aurora"
+CLOCK_TWELVE_HOUR = True        # Volume + toggles 12/24 hour
+CLOCK_SECONDS = "bar"           # "bar", "digits" or "none" (Volume - cycles)
+CLOCK_COLON_PULSE = True        # the colon gently breathes once per second
 
 # Scales background intensity only (digits unaffected). Lower it if the
 # background looks washed-out on camera, raise it for more colour.
-BACKGROUND_LEVEL = 1.0
-
-# ---------------------------------------------------------------- Advanced
-WIFI_COUNTRY = "US"     # two-letter country code for Wi-Fi regulations
-NTP_HOST = "pool.ntp.org"
-RESYNC_HOURS = 6        # how often to re-check the time over the internet
-FPS = 30                # animation frame rate
-
-# ---------------------------------------------------------------- Updates
-# The board checks this GitHub repository for new versions and installs them
-# on its own. Leave UPDATE_REPO empty to switch automatic updates off.
-UPDATE_REPO = ""        # "owner/repository"
-UPDATE_BRANCH = "main"
-UPDATE_MINUTES = 10     # how often to check
+CLOCK_BACKGROUND_LEVEL = 1.0
