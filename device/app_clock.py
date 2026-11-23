@@ -1,4 +1,4 @@
-# Clock app
+# Clock app (first app on the Galactic platform)
 #
 # Buttons
 #   A / B / C / D   theme: aurora / sky / amber / prism

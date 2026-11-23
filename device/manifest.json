@@ -1,6 +1,6 @@
 {
  "files": {
-  "app_clock.py": "4b24a5919ee6770bef2a6a253d4ed0dedb8ac463dda66ad68be35df27c45e62d",
+  "app_clock.py": "f63be53656337226788a9f1952c13996183dc25fcdacc418d34dca6e74807676",
   "clockface.py": "78f6802f3d0d6750446ff2aebde5993c9e6450c591a31f36e888b7374e905073",
   "config.py": "f1aad3f49ed900cdbb47dc06ccba91bd654eda3440055882aad0551630582ded",
   "launcher.py": "5b26244585f4e256fd95880cc6c26b563d40db2855610236f42d29670b37fe6b",
@@ -9,5 +9,5 @@
   "ota.py": "2867b9dee1ceb43f21851f141d895add433d48ff3c306275b9145b924e95a23b",
   "timekeeping.py": "a986c3253a7add48715bebee6d73def7bd1e440c42813f39e9fa2c25a623c919"
  },
- "version": "0e291b3d9499"
+ "version": "6d6776f2b1c5"
 }
