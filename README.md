@@ -42,10 +42,16 @@ A 44-second simulated run (boot, Wi-Fi sync, a minute rollover, every theme) is 
 ### 2 · Install Thonny (a simple editor that talks to the board)
 
 1. Download and install from **https://thonny.org**.
-2. Open Thonny. In the **bottom-right corner**, click the interpreter name and choose
-   **MicroPython (Raspberry Pi Pico)**.
+2. Open Thonny. With the Unicorn plugged in, click the text in the **bottom-right corner**
+   (it starts out as *Local Python 3 • Thonny's Python*, meaning your PC) and choose
+   **MicroPython (Raspberry Pi Pico)**. This is the right choice for the Pico 2 W too.
 3. The *Shell* panel at the bottom should show something like `MicroPython v1.2x … Pico 2 W`.
    If it doesn't, click the red **Stop** button in the toolbar.
+
+   Still not connecting? Open **Tools → Options → Interpreter**, choose
+   *MicroPython (Raspberry Pi Pico)*, and set **Port** to the *USB Serial Device (COMx)* entry.
+   If no such entry exists, Windows can't see the board: try another USB cable (many are
+   charge-only) or another USB port, or repeat step 1.
 
 ### 3 · Fill in your settings
 
