@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Pushing deploys to the clock, so refuse to push anything that fails checks.
+exec "$(git rev-parse --show-toplevel)/tools/check.sh" --fast

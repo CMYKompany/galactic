@@ -41,5 +41,8 @@ class WLAN:
             return -1
         return 1
 
+    def ifconfig(self):
+        return ("192.168.1.50", "255.255.255.0", "192.168.1.1", "192.168.1.1")
+
     def disconnect(self):
         self._at = None

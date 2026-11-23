@@ -80,9 +80,14 @@ All of the files that go on the board are in the [`device/`](device/) folder.
 
 1. In Thonny, open **View → Files**. The top pane is your computer; the bottom pane is the board.
 2. In the top pane, browse to the `device` folder.
-3. Select these five files (Ctrl/Cmd-click): **`main.py`, `clockface.py`, `timekeeping.py`,
-   `config.py`, `secrets.py`**.
-4. Right-click → **Upload to /**. If it asks to overwrite `main.py` (Pimoroni's demo launcher), say yes.
+3. Select **every `.py` file** in the folder **except `secrets.example.py`** (Ctrl/Cmd-click):
+   `app.py`, `clockface.py`, `config.py`, `main.py`, `net.py`, `ota.py`, `secrets.py`,
+   `timekeeping.py`.
+4. Right-click → **Upload to /**. If it asks to overwrite files (for example Pimoroni's demo
+   `main.py`, or an older version of the clock), say yes.
+
+This is the last time you need to copy files by hand: from now on the clock
+[updates itself](#automatic-updates).
 
 ### 5 · Start it
 
@@ -127,6 +132,8 @@ resets them to your new values.
 | Dashes with a pulsing **red** mark underneath | Wi-Fi failed. Check `secrets.py` (exact name and password, case-sensitive) and that the network is 2.4 GHz. It keeps retrying on its own. |
 | Time is off by whole hours | `UTC_OFFSET_HOURS` should be your **winter** offset; `DST_RULE` handles summer. |
 | Nothing at all | Press **Zzz** (the display may be switched off), or raise brightness with LUX +. |
+| A green light sweeps along the bottom twice | An update was just installed. |
+| A short **red** bar pulsing at the bottom, no digits | The clock code crashed. The board checks for a fixed version every minute and installs it on its own. |
 
 To see what the clock is doing, connect with Thonny and click **Stop**, then **Run**
 (`main.py` open) — progress messages appear in the Shell.
@@ -138,33 +145,70 @@ pip install mpremote
 ```
 
 ```bash
-cd device && mpremote cp main.py clockface.py timekeeping.py config.py secrets.py : + reset
+cd device && mpremote cp app.py clockface.py config.py main.py net.py ota.py secrets.py timekeeping.py : + reset
 ```
 
 ---
+
+## Automatic updates
+
+Once `UPDATE_REPO` in `config.py` names a GitHub repository, the clock checks it every
+`UPDATE_MINUTES` (10 by default) and installs new versions by itself:
+
+1. It downloads `device/manifest.json`: a version id and a SHA-256 fingerprint for every file
+   that belongs on the board.
+2. It downloads only the files whose fingerprint differs and checks each against the manifest.
+   If anything doesn't match, nothing on the board changes.
+3. It swaps the new files in, keeps the old ones as backups, and restarts. A green sweep along the
+   bottom row means an update arrived.
+4. If the new version crashes before it has run cleanly for a minute, or the board restarts three
+   times without getting that far, the old files are restored automatically and that version is
+   skipped.
+
+`secrets.py` (your Wi-Fi password) and the button-press settings are never touched by updates.
+Updates use only the Wi-Fi; the computer the board is plugged into doesn't matter.
+
+**Security note:** MicroPython's HTTPS library doesn't verify server certificates. Someone who
+controls your Wi-Fi network or the connection to GitHub could in principle feed the clock
+different code. That code could only affect the clock itself, but treat the board like any
+other unattended network gadget. Anyone with write access to the repository can also change
+what the clock runs.
 
 ## How it works
 
 | File | Role |
 |---|---|
-| `device/main.py` | Main loop (~30 fps): buttons, saved settings, hands time to the renderer |
+| `device/main.py` | Start-up: runs the updater's safety checks, then the clock; crash handling |
+| `device/ota.py` | Automatic updates: download, verify, install, roll back, recovery mode |
+| `device/app.py` | Main loop (~30 fps): buttons, saved settings, time sync and update checks |
 | `device/clockface.py` | Fonts, themes, roll animation, per-pixel compositing (background → halo → digits → overlays) |
-| `device/timekeeping.py` | Non-blocking Wi-Fi + NTP sync, every 6 h; local time and daylight-saving maths |
+| `device/timekeeping.py` | Local time and daylight-saving maths, NTP time sync |
+| `device/net.py` | Keeps Wi-Fi connected, reconnecting with back-off |
 | `device/config.py` | Your preferences |
+| `device/manifest.json` | Generated: what the board should have (`tools/build_manifest.py`) |
+| `tools/check.sh` | Every check that must pass before a release; also run by GitHub Actions and the pre-push hook |
 | `tools/simulate.py` | Runs the real device code on a PC against mock hardware and renders preview video/images |
+| `tools/test_ota.py` | Updater tests against a fake GitHub, including broken releases and rollback |
 | `tools/test_timekeeping.py` | Checks local-time maths against the IANA time-zone database (2025–2035) |
 
 The board keeps UTC; local time is calculated each frame, so daylight-saving changes happen at the
-right moment with no network needed. Wi-Fi is switched off between syncs.
+right moment with no network needed.
 
 ### Developing
 
+Pushing to `main` deploys to the clock. Before every push:
+
 ```bash
-python3 tools/test_timekeeping.py
+python3 tools/build_manifest.py
 ```
 
 ```bash
-python3 tools/simulate.py preview
+tools/check.sh
 ```
 
-`simulate.py` needs Pillow (`pip install pillow`) and ffmpeg for the video.
+`check.sh` needs `pip install mpy-cross pillow pyflakes` and ffmpeg. To have git refuse a push
+that fails the checks:
+
+```bash
+git config core.hooksPath .githooks
+```

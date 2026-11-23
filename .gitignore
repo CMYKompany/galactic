@@ -4,3 +4,4 @@ device/secrets.py
 settings.json
 __pycache__/
 preview/
+*.zip

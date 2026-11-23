@@ -10,7 +10,6 @@ import os
 import runpy
 import sys
 import tempfile
-import time
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
@@ -18,30 +17,23 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path[:0] = [os.path.join(HERE, "mock"), os.path.join(ROOT, "device")]
 
-from sim import SIM, SimDone  # noqa: E402
+from sim import SIM, SimDone, install_time  # noqa: E402
 import galactic  # noqa: E402
 
 GU = galactic.GalacticUnicorn
 
 # ------------------------------------------------------------ simulated time
-_MASK = (1 << 30) - 1
-time.ticks_ms = lambda: SIM.ms & _MASK
-time.ticks_add = lambda a, b: (a + b) & _MASK
+install_time()
+ERRORS = []
 
 
-def _ticks_diff(a, b):
-    d = (a - b) & _MASK
-    return d - (1 << 30) if d >= (1 << 29) else d
+def _print_exception(e):
+    ERRORS.append(e)
+    __import__("traceback").print_exception(e)
 
 
-def _sleep_ms(ms):
-    SIM.ms += int(ms)
+sys.print_exception = _print_exception
 
-
-time.ticks_diff = _ticks_diff
-time.sleep_ms = _sleep_ms
-time.sleep = lambda s: _sleep_ms(s * 1000)
-sys.print_exception = lambda e: __import__("traceback").print_exception(e)
 
 # ------------------------------------------------------------ LED rendering
 SCALE = 12
@@ -88,7 +80,7 @@ def run(start_utc, stop_s, presses=(), wifi_ok=True, capture_every=2, stills=())
             snaps[pending.pop(0)] = copy
 
     SIM.on_frame = on_frame
-    for m in ("main", "clockface", "timekeeping", "config", "secrets"):
+    for m in ("main", "app", "ota", "net", "clockface", "timekeeping", "config", "secrets"):
         sys.modules.pop(m, None)
     try:
         runpy.run_path(os.path.join(ROOT, "device", "main.py"), run_name="__main__")
@@ -152,6 +144,9 @@ def main():
     _, snaps, _ = run(dt.datetime(2026, 11, 21, 15, 0), 8, wifi_ok=False, stills=[7])
     render(snaps[7]).save(os.path.join(out, "wifi_error.png"))
     print("wrote", out)
+    if ERRORS:
+        print("FAILED: the clock raised", len(ERRORS), "exception(s)")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -125,109 +125,15 @@ class TimeKeeper:
 
 # ------------------------------------------------------------------ network
 
-class WiFiSync:
-    """Non-blocking Wi-Fi + NTP state machine, polled once per frame.
-
-    Connecting never freezes the display: poll() returns immediately and the
-    only blocking step is the NTP request itself (well under a second).
-    Wi-Fi is switched off between syncs.
-    """
-
-    IDLE = 0
-    CONNECTING = 1
-    CONNECT_TIMEOUT_MS = 20000
-
-    def __init__(self, ssid, password, country="", host="pool.ntp.org",
-                 resync_hours=6, hostname="galactic-clock"):
-        self.ssid = ssid
-        self.password = password
-        self.country = country
-        self.host = host
-        self.hostname = hostname
-        self.resync_ms = int(resync_hours * 3600 * 1000)
-        self.enabled = bool(ssid)
-        self.state = self.IDLE
-        self.synced_once = False
-        self.failures = 0
-        self._wlan = None
-        self._t0 = 0
-        self._next = time.ticks_ms()
-
-    def connecting(self):
-        return self.state == self.CONNECTING
-
-    def poll(self, now):
-        if not self.enabled:
-            return
-        if self.state == self.IDLE:
-            if time.ticks_diff(now, self._next) >= 0:
-                self._begin(now)
-            return
-
-        w = self._wlan
-        if w.isconnected():
-            self._finish(self._sync())
-        elif w.status() < 0:
-            print("Wi-Fi: connection failed (status {}). Check secrets.py.".format(w.status()))
-            self._finish(False)
-        elif time.ticks_diff(now, self._t0) > self.CONNECT_TIMEOUT_MS:
-            print("Wi-Fi: timed out connecting to '{}'".format(self.ssid))
-            self._finish(False)
-
-    def _begin(self, now):
+def sync_ntp(host="pool.ntp.org", attempts=3):
+    """Set the RTC to UTC from an NTP server. Needs Wi-Fi. Blocks < 1 s per try."""
+    import ntptime
+    ntptime.host = host
+    for _ in range(attempts):
         try:
-            import network
-            if self.country:
-                try:
-                    network.country(self.country)
-                except (AttributeError, ValueError, OSError):
-                    pass
-            try:
-                network.hostname(self.hostname)
-            except (AttributeError, ValueError, OSError):
-                pass
-            w = network.WLAN(network.STA_IF)
-            w.active(True)
-            try:
-                w.config(pm=0xA11140)  # power-saving off: more reliable on some routers
-            except (ValueError, OSError):
-                pass
-            print("Wi-Fi: connecting to '{}'...".format(self.ssid))
-            w.connect(self.ssid, self.password)
-            self._wlan = w
-            self._t0 = now
-            self.state = self.CONNECTING
-        except Exception as e:  # noqa: BLE001 - radio errors vary by firmware
-            print("Wi-Fi: could not start:", e)
-            self._wlan = None
-            self._finish(False)
-
-    def _sync(self):
-        import ntptime
-        ntptime.host = self.host
-        for _ in range(3):
-            try:
-                ntptime.settime()
-                print("Time synced from", self.host)
-                return True
-            except Exception as e:  # noqa: BLE001 - OSError / timeout
-                print("NTP failed:", e)
-        return False
-
-    def _finish(self, ok):
-        if self._wlan is not None:
-            try:
-                self._wlan.disconnect()
-                self._wlan.active(False)
-            except Exception:  # noqa: BLE001
-                pass
-        self.state = self.IDLE
-        if ok:
-            self.synced_once = True
-            self.failures = 0
-            delay = self.resync_ms
-        else:
-            self.failures += 1
-            # back off: 15 s, 30 s, 45 s ... capped at 5 minutes
-            delay = min(300000, 15000 * self.failures)
-        self._next = time.ticks_add(time.ticks_ms(), delay)
+            ntptime.settime()
+            print("Time synced from", host)
+            return True
+        except Exception as e:  # noqa: BLE001 - OSError / timeout
+            print("NTP failed:", e)
+    return False

@@ -45,3 +45,10 @@ WIFI_COUNTRY = "US"     # two-letter country code for Wi-Fi regulations
 NTP_HOST = "pool.ntp.org"
 RESYNC_HOURS = 6        # how often to re-check the time over the internet
 FPS = 30                # animation frame rate
+
+# ---------------------------------------------------------------- Updates
+# The board checks this GitHub repository for new versions and installs them
+# on its own. Leave UPDATE_REPO empty to switch automatic updates off.
+UPDATE_REPO = ""        # "owner/repository"
+UPDATE_BRANCH = "main"
+UPDATE_MINUTES = 10     # how often to check

@@ -470,6 +470,7 @@ class ClockFace:
         self.status = None          # None | "connecting" | "error" | "nowifi"
         self._toast_val = 0.0
         self._toast_t0 = None
+        self._celebrate_t0 = None
 
         self._layout()
         self._xoff = float(self._x_target)
@@ -506,6 +507,10 @@ class ClockFace:
         """Briefly show a 0..1 level on the bottom row (used for brightness)."""
         self._toast_val = value
         self._toast_t0 = now
+
+    def celebrate(self, now):
+        """A light sweeps twice along the bottom row: 'update installed'."""
+        self._celebrate_t0 = now
 
     # ------------------------------------------------------------ content
 
@@ -657,7 +662,19 @@ class ClockFace:
                 return
             self._toast_t0 = None
 
-        # 2. status while the time is unknown
+        # 2. update-installed sweep (2.4 s): a soft green comet, twice
+        if self._celebrate_t0 is not None:
+            age = time.ticks_diff(now, self._celebrate_t0)
+            if age < 2400:
+                pos = (age % 1200) / 1200.0 * (span + 8) - 4
+                for k in range(span):
+                    d = pos - k
+                    if 0.0 <= d < 6.0:
+                        self._ov(xs + k, y, (90, 255, 140), 230.0 * (1.0 - d / 6.0))
+                return
+            self._celebrate_t0 = None
+
+        # 3. status while the time is unknown
         if self._placeholder:
             if self.status == "connecting":
                 # a soft comet sweeping back and forth
@@ -672,7 +689,7 @@ class ClockFace:
                     self._ov(xs + k, y, (255, 40, 30), a)
             return
 
-        # 3. seconds bar
+        # 4. seconds bar
         if self.seconds != "bar":
             return
         s = self._sec

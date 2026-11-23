@@ -34,3 +34,22 @@ class Sim:
 
 
 SIM = Sim()
+
+
+def install_time():
+    """Replace MicroPython-only time functions with versions driven by SIM.ms."""
+    import time
+    mask = (1 << 30) - 1
+
+    def ticks_diff(a, b):
+        d = (a - b) & mask
+        return d - (1 << 30) if d >= (1 << 29) else d
+
+    def sleep_ms(ms):
+        SIM.ms += int(ms)
+
+    time.ticks_ms = lambda: SIM.ms & mask
+    time.ticks_add = lambda a, b: (a + b) & mask
+    time.ticks_diff = ticks_diff
+    time.sleep_ms = sleep_ms
+    time.sleep = lambda s: sleep_ms(s * 1000)
