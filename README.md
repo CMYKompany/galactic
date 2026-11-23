@@ -196,6 +196,11 @@ scroll. Emoji and other non-ASCII characters show as `?`; curly quotes and dashe
 can send to your display. For more control, ntfy can be self-hosted (it ships as a Docker
 image); point `NTFY_SERVER` in `config.py` at it (plain `http://` works on a local network).
 
+### Home Assistant
+
+[`docs/home-assistant.md`](docs/home-assistant.md) sets up Home Assistant on a Mac mini
+alongside Apple Home and connects it to the display through the same ntfy topic.
+
 ## Automatic updates
 
 Once `UPDATE_REPO` in `config.py` names a GitHub repository, the clock checks it every
